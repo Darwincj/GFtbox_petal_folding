@@ -1,0 +1,70 @@
+
+% Here you may write any functions of your own, that you want to call from
+% the interaction function, but never need to call from outside it.
+% Remember that they do not have access to any variables except those
+% that you pass as parameters, and cannot change anything except by
+% returning new values as results.
+% Whichever section they are called from, they must respect the same
+% restrictions on what modifications they are allowed to make to the mesh.
+
+% The GFtbox_..._Callback routines can be deleted if you do not use them.
+% Those that you retain will be automatically called by GFtbox at certain
+% points in the simulation cycle.
+% If you retain them, their headers specifying their arguments and results
+% must not be altered.
+function [m,result] = GFtbox_Precelldivision_Callback( m, ci ) %#ok<DEFNU>
+    result = [];
+    % Your code here.
+
+    % If a nonempty result is to be returned, it should be a struct
+    % with fields result.divide, result.dividepoint, and result.perpendicular.
+end
+
+function [m,result] = GFtbox_Preplot_Callback( m, theaxes )
+    result =[];
+    % m = setCellAreaMorphogen( m );
+    % m = setCellAreaMorphogen_aniso( m );
+   
+end
+
+% function m = setCellAreaMorphogen( m )
+%      [c_area_i,c_area] = getCellFactorLevels( m, 'c_area' );  %#ok<ASGLU>
+%      area = m.secondlayer.cellarea;
+%      %Same as John's scale
+%      LN_area = log(area);
+%      m.secondlayer.cellvalues(:,c_area_i) = LN_area;
+%      %m.secondlayer.cellvalues(:,c_area_i) = m.secondlayer.cellarea;
+% end
+% 
+% function m = setCellAreaMorphogen_aniso( m )
+%     [c_aniso_i,c_aniso] = getCellFactorLevels( m, 'c_aniso' );  %#ok<ASGLU>
+%     aniso = leaf_cellshapes( m );
+%     %Same as John's scale (need to confirm)
+%     %aniso_change = log((1 + aniso)./(1 - aniso));
+%     m.secondlayer.cellvalues(:,c_aniso_i) = aniso;
+% end
+% 
+% function a1 = anisoCorrection(a)
+%     a(a>1) = 1;
+%     a(a<0) = 0;
+%     a1 = (1 - sqrt(1-a.^2))./a;
+%     a1(isnan(a1)) = 0;
+% end
+
+function [m,result] = GFtbox_Postcelldivision_Callback( m, ci, cei, newci, newcei, oe1, oe2, ne1, ne2, ne3 ) %#ok<DEFNU>
+    result = [];
+    % Your code here.
+end
+
+function [m,result] = GFtbox_Postiterate_Callback( m ) %#ok<DEFNU>
+    result = [];
+    % Your code here.
+end
+
+
+function [m,result] = GFtbox_Postplot_Callback( m, theaxes ) %#ok<DEFNU>
+    result = [];
+    % Your code here.
+end
+
+

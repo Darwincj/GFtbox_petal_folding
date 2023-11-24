@@ -1,0 +1,174 @@
+
+% In this section you may modify the mesh in any way that does not
+% alter the set of nodes.
+
+    if (Steps(m)==0) && m.globalDynamicProps.doinit
+        % Put any code here that should only be performed at the start of
+        % the simulation.
+        
+        center = [0, 0];
+        radii_center = sqrt((m.nodes(:,1)-center(1)).^2 + (m.nodes(:,2)-center(2)).^2);
+
+        % Define the +organiser/source of P
+        id_base_p(m.nodes(:,2)==min(m.nodes(:,2)))=1;
+
+        % Define the -organiser/sink of P
+        id_tip_p((radii_center>0.95)&(m.nodes(:,2)>0))=1;
+
+        % Define the sinus factor 
+        tip = [0, 1];
+        radii_tip = sqrt((m.nodes(:,1)-tip(1)).^2 + (m.nodes(:,2)-tip(2)).^2);
+        id_sinus_p(radii_tip < 0.3)=1;
+
+        % Define the lobe factor 
+        id_bla_p(m.nodes(:,2)>-0.3)=1;
+        s_bla_p = id_bla_p;
+        m.morphogenclamp(id_bla_p==1, s_bla_i)=1;
+        m = leaf_mgen_conductivity( m, 'S_BLA', 0.01 );
+        m = leaf_mgen_absorption( m, 'S_BLA', 0.0001 );   
+        
+        % Define the mid_vein factor 
+        id_mid_p((abs(m.nodes(:,1)-0.5)<=0.05)|(abs(m.nodes(:,1)+0.5)<=0.05))=1;
+        s_mid_p = id_mid_p;
+        m.morphogenclamp(id_mid_p==1, s_mid_i)=1;
+        m = leaf_mgen_conductivity( m, 'S_MID', 0.001 );
+
+        % Define the stalk/claw domain
+        id_stk_p(m.nodes(:,2)<-0.3)=1;
+        
+        % Define the folding factor
+        id_fold_p((m.nodes(:,2)<=-0.2)&(m.nodes(:,2)>=-0.55)&... 
+                  (m.nodes(:,1)>0.5)&(m.nodes(:,1)<0.75))=1;      
+        s_fold_p = id_fold_p;
+        m.morphogenclamp(id_fold_p==1, s_fold_i)=1;
+        m = leaf_mgen_conductivity( m, 'S_FOLD', 0.001 );   % diffusion rate of S_FOLD
+        m = leaf_mgen_absorption( m, 'S_FOLD', 0.001 );     % decay rate of S_FOLD
+
+        % Define the asymmetric signal, corresponding to the dorsoventral symmetry of the whole flower 
+        s_asym_p = (m.nodes(:,1)-min(m.nodes(:,1)))/...
+                   (max(m.nodes(:,1))-min(m.nodes(:,1)));
+
+        % Mesh is fixed on the base 
+        m = leaf_fix_vertex( m, 'vertex', find(id_base_p==1), 'dfs', 'y'); 
+        
+    end
+
+    % PRN Polarity regulatory network
+    % Setup the planar(proximo-distal) polarity field
+    P(id_base_p==1)=1;  % source
+    P(id_tip_p==1)=0;   % sink
+    m.morphogenclamp((id_base_p==1)|(id_tip_p==1), polariser_i) = 1;
+    m = leaf_mgen_conductivity( m, 'POLARISER', 0.05 );    % diffusion rate of P
+    m = leaf_mgen_absorption( m, 'POLARISER', 0.0001 );    % decay rate of P
+    
+
+    % KRN Growth rate regulatory network
+    % kapar/kbpar: growth rate parallel to the polarity on a/b surface
+    % kaper/kbper: growth rate perpendicular to the polarity on a/b surface
+    % Run Time = 24
+
+    % Growth Phase I
+    if (realtime > 4-0.001 ) && (realtime < 14)
+        
+       kapar_p(:) = 0.12 * pro(1.2, id_mid_p)...
+                        .* inh(5, id_sinus_p); 
+                    
+       kaper_p(:) = 0.08  * inh(10, id_stk_p)...
+                        .* inh(5, id_sinus_p);  
+                    
+       kbpar_p = kapar_p;
+       
+       kbper_p = kaper_p;
+       
+       knor_p  = 0;
+       
+    end
+
+    % Growth Phase II: Folding 
+    if ( realtime > 14-0.001 ) && ( realtime < 24 )
+
+        switch OPTIONS.modelname
+
+            case 'MODEL1'  % Default petal model
+
+                kapar_p(:) = 0.12 * pro(0.2, id_mid_p)...  
+                        .* inh(0.5, s_asym_p)... 
+                        .* pro(0, s_fold_p)... 
+                        .* inh(5, id_sinus_p); 
+                    
+                kaper_p(:) = 0.08 * inh(10, id_stk_p)...  
+                        .* pro(0.8, s_asym_p)...  
+                        .* pro(0, s_fold_p)...
+                        .* inh(5, id_sinus_p);  
+      
+                kbpar_p(:) = 0.12 * pro(0.2, id_mid_p)... 
+                        .* inh(0.5, s_asym_p)...  
+                        .* pro(0, s_fold_p)...
+                        .* inh(5, id_sinus_p); 
+                    
+                kbper_p(:) = 0.08 * inh(10, id_stk_p)...  
+                        .* pro(0.8, s_asym_p)...  
+                        .* pro(0, s_fold_p)...
+                        .* inh(5, id_sinus_p); 
+
+                knor_p  = 0;
+
+
+            case 'MODEL2'  % Areal conflict
+
+                kapar_p(:) = 0.12 * pro(0.2, id_mid_p)...
+                        .* inh(0.5, s_asym_p)...
+                        .* pro(0, s_fold_p)... 
+                        .* inh(5, id_sinus_p); 
+                    
+                kaper_p(:) = 0.08 * inh(10, id_stk_p)...
+                        .* pro(0.8, s_asym_p)...
+                        .* pro(0.3, s_fold_p)...  
+                        .* inh(5, id_sinus_p);  
+      
+                kbpar_p(:) = 0.12 * pro(0.2, id_mid_p)...
+                        .* inh(0.5, s_asym_p)...
+                        .* pro(0, s_fold_p)...
+                        .* inh(5, id_sinus_p); 
+                    
+                kbper_p(:) = 0.08 * inh(10, id_stk_p)...
+                        .* pro(0.8, s_asym_p)...
+                        .* pro(0.3, s_fold_p)...   
+                        .* inh(5, id_sinus_p); 
+
+                knor_p  = 0;
+
+
+            case 'MODEL3'  % Areal plus Surface conflict
+
+                kapar_p(:) = 0.12 * pro(0.2, id_mid_p)...
+                        .* inh(0.5, s_asym_p)...
+                        .* pro(0, s_fold_p)... 
+                        .* inh(5, id_sinus_p); 
+                    
+                kaper_p(:) = 0.08 * inh(10, id_stk_p)...
+                        .* pro(0.8, s_asym_p)...
+                        .* pro(0.0, s_fold_p)...
+                        .* inh(5, id_sinus_p);  
+      
+                kbpar_p(:) = 0.12 * pro(0.2, id_mid_p)...
+                        .* inh(0.5, s_asym_p)...
+                        .* pro(0, s_fold_p)...
+                        .* inh(5, id_sinus_p); 
+                    
+                kbper_p(:) = 0.08 * inh(10, id_stk_p)...
+                        .* pro(0.8, s_asym_p)...
+                        .* pro(0.3, s_fold_p)...  
+                        .* inh(5, id_sinus_p); 
+
+                knor_p  = 0;
+    
+        end
+
+    end
+    
+        v_kaniso_a_p = log(kapar_p./kaper_p);  % visualise growth anisotropy in ln scale of A/abaxial surface
+        v_karea_a_p = kaper_p + kapar_p;       % visualise areal growth rate of A/abaxial surface
+        
+        v_kaniso_b_p = log(kbpar_p./kbper_p);  % visualise growth anisotropy in ln scale of B/adaxial surface
+        v_karea_b_p = kbper_p + kbpar_p;       % visualise areal growth rate of B/adaxial surface
